@@ -23,6 +23,7 @@ const els = {
   qualitySelect: document.querySelector("#qualitySelect"),
   widthSelect: document.querySelector("#widthSelect"),
   audioSelect: document.querySelector("#audioSelect"),
+  targetSizeInput: document.querySelector("#targetSizeInput"),
   compressButton: document.querySelector("#compressButton"),
   downloadLink: document.querySelector("#downloadLink"),
   statusText: document.querySelector("#statusText"),
@@ -63,6 +64,7 @@ els.dropZone.addEventListener("drop", (event) => {
 });
 
 els.compressButton.addEventListener("click", compressVideo);
+els.inputVideo.addEventListener("loadedmetadata", updateInputMeta);
 
 function setInputFile(file) {
   clearOutput();
@@ -71,7 +73,7 @@ function setInputFile(file) {
   state.inputFile = file;
   state.inputUrl = URL.createObjectURL(file);
   els.inputVideo.src = state.inputUrl;
-  els.inputMeta.textContent = `${file.name} / ${formatBytes(file.size)}`;
+  updateInputMeta();
   els.compressButton.disabled = false;
   setStatus("Choose compression settings, then start compression.");
 }
@@ -118,7 +120,9 @@ async function compressVideo() {
     setStatus("Loading the video into memory.");
     await ffmpeg.writeFile(inputName, await fetchFile(state.inputFile));
 
-    const args = buildArgs(inputName, outputName);
+    const duration = isTargetSizeMode() ? await getInputDuration() : null;
+    const { args, summary } = buildArgs(inputName, outputName, duration);
+    appendLog(summary);
     appendLog(`$ ffmpeg ${args.join(" ")}`);
     setStatus("Compressing. Keep this tab open.");
     await ffmpeg.exec(args);
@@ -146,14 +150,32 @@ async function compressVideo() {
   }
 }
 
-function buildArgs(inputName, outputName) {
+function buildArgs(inputName, outputName, duration) {
   const crf = els.qualitySelect.value;
   const maxWidth = Number(els.widthSelect.value);
   const audio = els.audioSelect.value;
-  const args = ["-i", inputName, "-map", "0:v:0", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf];
+  const targetSizeMb = Number(els.targetSizeInput.value);
+  const args = ["-i", inputName, "-map", "0:v:0", "-c:v", "libx264", "-preset", "veryfast"];
+  const targetMode = isTargetSizeMode();
+  let summary = `mode: crf\ncrf: ${crf}`;
+
+  if (targetMode) {
+    const videoBitrateKbps = calculateVideoBitrateKbps(targetSizeMb, duration, audio);
+    args.push("-b:v", `${videoBitrateKbps}k`, "-maxrate", `${Math.round(videoBitrateKbps * 1.35)}k`, "-bufsize", `${videoBitrateKbps * 2}k`);
+    summary = [
+      "mode: target-size",
+      `target_size: ${targetSizeMb} MB`,
+      `duration: ${formatDuration(duration)}`,
+      `video_bitrate: ${videoBitrateKbps}k`,
+      `audio_bitrate: ${audio === "none" ? "none" : audio}`,
+    ].join("\n");
+  } else {
+    args.push("-crf", crf);
+  }
 
   if (maxWidth > 0) {
     args.push("-vf", `scale='min(${maxWidth},iw)':-2`);
+    summary = `${summary}\nmax_width: ${maxWidth}px`;
   }
 
   if (audio === "none") {
@@ -163,7 +185,7 @@ function buildArgs(inputName, outputName) {
   }
 
   args.push("-movflags", "+faststart", outputName);
-  return args;
+  return { args, summary };
 }
 
 async function cleanupFiles(ffmpeg, names) {
@@ -192,6 +214,7 @@ function setBusy(isBusy) {
   els.qualitySelect.disabled = isBusy;
   els.widthSelect.disabled = isBusy;
   els.audioSelect.disabled = isBusy;
+  els.targetSizeInput.disabled = isBusy;
 }
 
 function setStatus(message) {
@@ -223,6 +246,75 @@ function formatBytes(bytes) {
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** index;
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "unknown";
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.round(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${rest}`;
+}
+
+function updateInputMeta() {
+  if (!state.inputFile) {
+    els.inputMeta.textContent = "No file selected";
+    return;
+  }
+
+  const duration = els.inputVideo.duration;
+  const durationText = Number.isFinite(duration) && duration > 0 ? ` / ${formatDuration(duration)}` : "";
+  els.inputMeta.textContent = `${state.inputFile.name} / ${formatBytes(state.inputFile.size)}${durationText}`;
+}
+
+async function getInputDuration() {
+  if (Number.isFinite(els.inputVideo.duration) && els.inputVideo.duration > 0) {
+    return els.inputVideo.duration;
+  }
+
+  await new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("Could not read video duration.")), 5000);
+    els.inputVideo.addEventListener("loadedmetadata", () => {
+      window.clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
+
+  if (!Number.isFinite(els.inputVideo.duration) || els.inputVideo.duration <= 0) {
+    throw new Error("Could not read video duration.");
+  }
+
+  return els.inputVideo.duration;
+}
+
+function calculateVideoBitrateKbps(targetSizeMb, duration, audio) {
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error("Target size mode requires a readable video duration.");
+  }
+
+  const targetBits = targetSizeMb * 1024 * 1024 * 8;
+  const containerOverheadRatio = 0.97;
+  const audioKbps = audio === "none" ? 0 : parseKbps(audio);
+  const totalKbps = targetBits / duration / 1000;
+  const videoKbps = Math.floor((totalKbps * containerOverheadRatio) - audioKbps);
+
+  if (videoKbps < 100) {
+    throw new Error("Target size is too small for this duration and audio setting.");
+  }
+
+  return videoKbps;
+}
+
+function isTargetSizeMode() {
+  const targetSizeMb = Number(els.targetSizeInput.value);
+  return Number.isFinite(targetSizeMb) && targetSizeMb > 0;
+}
+
+function parseKbps(value) {
+  const match = /^(\d+)k$/.exec(value);
+  return match ? Number(match[1]) : 0;
 }
 
 function reductionText(inputBytes, outputBytes) {

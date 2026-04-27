@@ -138,7 +138,7 @@ video {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto auto;
+  grid-template-columns: repeat(4, minmax(130px, 1fr)) auto auto;
   gap: 8px;
   align-items: end;
   padding: 8px;
@@ -151,7 +151,8 @@ label {
   font-size: 0.95rem;
 }
 
-select {
+select,
+input {
   width: 100%;
   min-height: 30px;
   border: 1px solid var(--line);
