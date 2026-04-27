@@ -11,27 +11,26 @@
   <body>
     <main class="app-shell">
       <section class="workspace" aria-labelledby="page-title">
-        <div class="title-row">
-          <div>
-            <p class="eyebrow">ffmpeg.wasm local compressor</p>
-            <h1 id="page-title">Video Compressor</h1>
-          </div>
-          <span class="privacy-badge">Local processing</span>
-        </div>
+        <h1 id="page-title">video compressor</h1>
+        <pre class="meta">engine: ffmpeg.wasm
+runtime: browser
+upload: none
+output: mp4</pre>
 
         <div class="drop-zone" id="dropZone">
           <input id="fileInput" type="file" accept="video/*">
           <div class="drop-copy">
-            <strong>Select a video file</strong>
-            <span>or drag and drop it here</span>
+            <strong>input file</strong>
+            <span>Select a video file or drop it here.</span>
           </div>
           <button class="secondary" id="pickButton" type="button">Choose file</button>
         </div>
 
+        <h2>preview</h2>
         <div class="preview-grid">
           <section class="panel">
             <div class="panel-heading">
-              <h2>Input</h2>
+              <h3>input</h3>
               <span id="inputMeta">No file selected</span>
             </div>
             <video id="inputVideo" controls muted playsinline></video>
@@ -39,13 +38,14 @@
 
           <section class="panel">
             <div class="panel-heading">
-              <h2>Output</h2>
+              <h3>output</h3>
               <span id="outputMeta">Waiting</span>
             </div>
             <video id="outputVideo" controls playsinline></video>
           </section>
         </div>
 
+        <h2>settings</h2>
         <section class="controls" aria-label="Compression settings">
           <label>
             <span>Quality</span>
@@ -80,6 +80,7 @@
           <a class="download-link" id="downloadLink" hidden>Download</a>
         </section>
 
+        <h2>status</h2>
         <section class="status-panel" aria-live="polite">
           <div class="status-line">
             <span id="statusText">Select a video to start.</span>
