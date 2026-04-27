@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A browser-based video compressor for GitHub Pages">
+    <title>Video Compressor</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="title-row">
+          <div>
+            <p class="eyebrow">ffmpeg.wasm local compressor</p>
+            <h1 id="page-title">Video Compressor</h1>
+          </div>
+          <span class="privacy-badge">Local processing</span>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+          <input id="fileInput" type="file" accept="video/*">
+          <div class="drop-copy">
+            <strong>Select a video file</strong>
+            <span>or drag and drop it here</span>
+          </div>
+          <button class="secondary" id="pickButton" type="button">Choose file</button>
+        </div>
+
+        <div class="preview-grid">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Input</h2>
+              <span id="inputMeta">No file selected</span>
+            </div>
+            <video id="inputVideo" controls muted playsinline></video>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Output</h2>
+              <span id="outputMeta">Waiting</span>
+            </div>
+            <video id="outputVideo" controls playsinline></video>
+          </section>
+        </div>
+
+        <section class="controls" aria-label="Compression settings">
+          <label>
+            <span>Quality</span>
+            <select id="qualitySelect">
+              <option value="28">Smaller file</option>
+              <option value="24" selected>Balanced</option>
+              <option value="20">Higher quality</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Max width</span>
+            <select id="widthSelect">
+              <option value="0">Keep original</option>
+              <option value="480">480px</option>
+              <option value="720" selected>720px</option>
+              <option value="1080">1080px</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Audio</span>
+            <select id="audioSelect">
+              <option value="96k" selected>96kbps</option>
+              <option value="128k">128kbps</option>
+              <option value="64k">64kbps</option>
+              <option value="none">Remove</option>
+            </select>
+          </label>
+
+          <button class="primary" id="compressButton" type="button" disabled>Compress</button>
+          <a class="download-link" id="downloadLink" hidden>Download</a>
+        </section>
+
+        <section class="status-panel" aria-live="polite">
+          <div class="status-line">
+            <span id="statusText">Select a video to start.</span>
+            <span id="progressText">0%</span>
+          </div>
+          <progress id="progressBar" value="0" max="100"></progress>
+          <pre id="logOutput"></pre>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
